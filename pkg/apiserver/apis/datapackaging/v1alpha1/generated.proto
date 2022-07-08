@@ -116,17 +116,10 @@ message PackageSpec {
   // +optional
   repeated IncludedSoftware includedSoftware = 9;
 
-  // Revoked indicates that this package is no longer recommended for use.
+  // Yanked indicates that this package is no longer recommended for use.
   // This package likely contains unsupported software, a CVE or a critical bug.
   // +optional
-  optional Revoked revoked = 10;
-}
-
-// Revoked contains the package revokation details
-message Revoked {
-  optional string reason = 1;
-
-  optional string date = 2;
+  optional Yanked yanked = 10;
 }
 
 message ValuesSchema {
@@ -134,5 +127,12 @@ message ValuesSchema {
   // +nullable
   // +kubebuilder:pruning:PreserveUnknownFields
   optional k8s.io.apimachinery.pkg.runtime.RawExtension openAPIv3 = 1;
+}
+
+// Yanked contains details of the rationale of why this version was yanked
+message Yanked {
+  optional string reason = 1;
+
+  optional string date = 2;
 }
 

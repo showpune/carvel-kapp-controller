@@ -124,14 +124,6 @@ spec:
                 format: date-time
                 nullable: true
                 type: string
-              revoked:
-                description: Revoked indicates that this package is no longer recommended for use. This package likely contains unsupported software, a CVE or a critical bug.
-                properties:
-                  date:
-                    type: string
-                  reason:
-                    type: string
-                type: object
               template:
                 properties:
                   spec:
@@ -623,6 +615,14 @@ spec:
               version:
                 description: Package version; Referenced by PackageInstall; Must be valid semver (required) Cannot be empty
                 type: string
+              yanked:
+                description: Yanked indicates that this package is no longer recommended for use. This package likely contains unsupported software, a CVE or a critical bug.
+                properties:
+                  date:
+                    type: string
+                  reason:
+                    type: string
+                type: object
             type: object
         required:
         - spec

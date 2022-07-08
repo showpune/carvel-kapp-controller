@@ -64,10 +64,10 @@ func (s *Status) IsDeleteFailed() bool {
 	return false
 }
 
-// IsPackageRevoked checks the status.conditions for the presence of the PackageRevoked condition
-func (s *Status) IsPackageRevoked() bool {
+// IsPackageYanked checks the status.conditions for the presence of the PackageYanked condition
+func (s *Status) IsPackageYanked() bool {
 	for _, cond := range s.S.Conditions {
-		if cond.Type == kcv1alpha1.PackageRevoked {
+		if cond.Type == kcv1alpha1.PackageYanked {
 			return true
 		}
 	}
@@ -122,12 +122,12 @@ func (s *Status) SetReconcileCompleted(err error) {
 	s.UpdateFunc(s.S)
 }
 
-// SetPackageRevoked appends a new condition to indicate a package is revoked
-func (s *Status) SetPackageRevoked(meta metav1.ObjectMeta, reason string) {
+// SetPackageYanked appends a new condition to indicate a package is yanked
+func (s *Status) SetPackageYanked(meta metav1.ObjectMeta, reason string) {
 	s.markObservedLatest(meta)
 
 	s.S.Conditions = append(s.S.Conditions, kcv1alpha1.Condition{
-		Type:   kcv1alpha1.PackageRevoked,
+		Type:   kcv1alpha1.PackageYanked,
 		Status: corev1.ConditionTrue,
 		Reason: reason,
 	})
@@ -135,6 +135,7 @@ func (s *Status) SetPackageRevoked(meta metav1.ObjectMeta, reason string) {
 	s.UpdateFunc(s.S)
 }
 
+// SetDeleteCompleted updates the status after finishing deletion
 func (s *Status) SetDeleteCompleted(err error) {
 	if err != nil {
 		s.S.Conditions = append(s.S.Conditions, kcv1alpha1.Condition{
@@ -164,6 +165,7 @@ func (s *Status) markObservedLatest(meta metav1.ObjectMeta) {
 	s.S.ObservedGeneration = meta.Generation
 }
 
+// RemoveAllConditions deletes all conditions of status
 func (s *Status) RemoveAllConditions() {
 	s.S.Conditions = nil
 }

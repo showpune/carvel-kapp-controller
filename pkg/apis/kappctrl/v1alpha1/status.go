@@ -33,7 +33,7 @@ const (
 	Deleting     ConditionType = "Deleting"
 	DeleteFailed ConditionType = "DeleteFailed"
 
-	PackageRevoked ConditionType = "PackageRevoked"
+	PackageYanked ConditionType = "PackageYanked"
 )
 
 // +k8s:openapi-gen=true

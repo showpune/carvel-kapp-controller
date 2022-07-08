@@ -455,7 +455,7 @@ func Test_PlaceHolderSecretCreated_WhenPackageInstallUpdated(t *testing.T) {
 	assert.Equal(t, "instl-pkg-fetch-0", app.Spec.Fetch[0].ImgpkgBundle.SecretRef.Name)
 }
 
-func Test_CreatePackage_RevokedStatus(t *testing.T) {
+func Test_CreatePackage_YankedStatus(t *testing.T) {
 	log := logf.Log.WithName("kc")
 	expectedReason := "testing-reason"
 
@@ -482,7 +482,7 @@ func Test_CreatePackage_RevokedStatus(t *testing.T) {
 		expectedConditions []v1alpha1.Condition
 	}{
 		{
-			name: "revoked status is shown",
+			name: "yanked status is shown",
 			pkg: &datapkgingv1alpha1.Package{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "expected-pkg.1.0.0",
@@ -490,7 +490,7 @@ func Test_CreatePackage_RevokedStatus(t *testing.T) {
 				Spec: datapkgingv1alpha1.PackageSpec{
 					RefName: "expected-pkg",
 					Version: "1.0.0",
-					Revoked: &datapkgingv1alpha1.Revoked{
+					Yanked: &datapkgingv1alpha1.Yanked{
 						Reason: expectedReason,
 					},
 					Template: datapkgingv1alpha1.AppTemplateSpec{
@@ -506,13 +506,13 @@ func Test_CreatePackage_RevokedStatus(t *testing.T) {
 				Type:   v1alpha1.Reconciling,
 				Status: corev1.ConditionTrue,
 			}, {
-				Type:   v1alpha1.PackageRevoked,
+				Type:   v1alpha1.PackageYanked,
 				Status: corev1.ConditionTrue,
 				Reason: expectedReason,
 			}},
 		},
 		{
-			name: "revoked status is not shown when not set",
+			name: "yanked status is not shown when not set",
 			pkg: &datapkgingv1alpha1.Package{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "expected-pkg.1.0.0",
@@ -547,7 +547,7 @@ func Test_CreatePackage_RevokedStatus(t *testing.T) {
 			_, err := ip.Reconcile()
 			require.NoError(t, err)
 
-			assert.Equal(t, tt.expectedConditions, getPackageInstall(t, fakekctrl, "instl-pkg").Status.GenericStatus.Conditions, "Status does not correctly shown the Revoked state")
+			assert.Equal(t, tt.expectedConditions, getPackageInstall(t, fakekctrl, "instl-pkg").Status.GenericStatus.Conditions, "Status does not correctly shown the Yanked state")
 		})
 	}
 }

@@ -108,8 +108,8 @@ func (pi *PackageInstallCR) reconcile(modelStatus *reconciler.Status) (reconcile
 		return reconcile.Result{Requeue: true}, err
 	}
 
-	if pkg.Spec.Revoked != nil {
-		modelStatus.SetPackageRevoked(pi.model.ObjectMeta, pkg.Spec.Revoked.Reason)
+	if pkg.Spec.Yanked != nil {
+		modelStatus.SetPackageYanked(pi.model.ObjectMeta, pkg.Spec.Yanked.Reason)
 	}
 
 	// Set new desired version before checking if it's not applicable
