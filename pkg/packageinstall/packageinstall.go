@@ -132,6 +132,12 @@ func (pi *PackageInstallCR) reconcile(modelStatus *reconciler.Status) (reconcile
 		}
 	}
 
+	// TODO: we probably need to incorporate this into the loop above (for the case where multiple versions of the pkg satisfy the version constraing but not the k8s / kc constraints) but we'll do it later.
+	err = pi.clusterVersionConstraints(&pkg)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	pi.model.Status.LastAttemptedVersion = pkg.Spec.Version
 
 	existingApp, err := pi.kcclient.KappctrlV1alpha1().Apps(pi.model.Namespace).Get(
@@ -199,6 +205,24 @@ func (pi *PackageInstallCR) reconcileAppWithPackage(existingApp *kcv1alpha1.App,
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (pi *PackageInstallCR) clusterVersionConstraints(pkg *datapkgingv1alpha1.Package) error {
+	if pkg.Spec.KubernetesVersionSelection != nil {
+		// TODO get kubernetes version
+		k8sV := "1.23.0" // TODO: query the cluster
+		v := versions.NewRelaxedSemversNoErr([]string{k8sV})
+		matchedVers, err := v.FilterConstraints(pkg.Spec.KubernetesVersionSelection.Constraints)
+		if err != nil {
+			return err
+		}
+		// TODO: check the pkgi for the override annotation
+		if matchedVers.Len() == 0 {
+			return fmt.Errorf("Cluster is running kubernetes %s but package constrained versions to: %s", k8sV, pkg.Spec.KubernetesVersionSelection.Constraints)
+		}
+
+	}
+	return nil
 }
 
 func (pi *PackageInstallCR) referencedPkgVersion() (datapkgingv1alpha1.Package, error) {

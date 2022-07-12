@@ -172,6 +172,108 @@ stringData:
 	assert.Equal(t, expectedStatus, cr.Status)
 }
 
+// helper for the below test allows us to "template" in and out version constraints
+// if kcVerC is "" then we omit that field, same for k8sVerC
+func pkgiYamlHelper(pkgiName, kcVerC, k8sVerC string) string {
+	installPkgYaml := `---
+apiVersion: data.packaging.carvel.dev/v1alpha1
+kind: Package
+metadata:
+  name: pkg.test.carvel.dev.1.0.0
+spec:
+`
+	// too bad there's no tools for templating yaml.
+	if kcVerC != "" {
+		installPkgYaml += fmt.Sprintf(`  kappControllerVersionSelection:
+    constraints: "%s"`, kcVerC)
+	}
+	if k8sVerC != "" {
+		installPkgYaml += fmt.Sprintf(`  kubernetesVersionSelection:
+    constraints: "%s"`, k8sVerC)
+	}
+	installPkgYaml += fmt.Sprintf(`
+  refName: pkg.test.carvel.dev
+  version: 1.0.0
+  licenses:
+  - Apache 2.0
+  capactiyRequirementsDescription: "cpu: 1,RAM: 2, Disk: 3"
+  releaseNotes: |
+    - Introduce simple-app package
+  releasedAt: 2021-05-05T18:57:06Z
+  template:
+    spec:
+      fetch:
+      - imgpkgBundle:
+          image: k8slt/kctrl-example-pkg:v1.0.0
+      template:
+      - ytt: {}
+      - kbld:
+          paths:
+          - "-"
+          - ".imgpkg/images.yml"
+      deploy:
+      - kapp:
+          inspect: {}
+---
+apiVersion: packaging.carvel.dev/v1alpha1
+kind: PackageInstall
+metadata:
+  name: %[1]s
+  annotations:
+    kapp.k14s.io/change-group: kappctrl-e2e.k14s.io/packageinstalls
+spec:
+  serviceAccountName: kappctrl-e2e-ns-sa
+  packageRef:
+    refName: pkg.test.carvel.dev
+    versionSelection:
+      constraints: 1.0.0
+  values:
+  - secretRef:
+      name: pkg-demo-values
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pkg-demo-values
+stringData:
+  values.yml: |
+    hello_msg: "hi"
+`, pkgiName)
+	return installPkgYaml
+}
+
+func Test_PackageInstalled_FromPackageInstall_VersionConstraints(t *testing.T) {
+	env := e2e.BuildEnv(t)
+	logger := e2e.Logger{}
+	kapp := e2e.Kapp{t, env.Namespace, logger}
+	// kubectl := e2e.Kubectl{t, env.Namespace, logger}
+	sas := e2e.ServiceAccounts{env.Namespace}
+	name := "instl-pkg-test"
+	installPkgYaml := pkgiYamlHelper(name, "", ">2.0.0") + sas.ForNamespaceYAML()
+
+	cleanUp := func() {
+		// Delete App with kubectl first since kapp
+		// deletes ServiceAccount before App
+		//TODO: we think this hasn't been necessary like since any of us joined the team.. kubectl.RunWithOpts([]string{"delete", "apps/" + name}, e2e.RunOpts{AllowError: true})
+		kapp.Run([]string{"delete", "-a", name})
+	}
+	cleanUp()
+	defer cleanUp()
+
+	fmt.Println("\n======\nYAML To Be Passed in \n=====\n", installPkgYaml, "\n========")
+
+	logger.Section("Install Package and PackageInstall", func() {
+		out, err := kapp.RunWithOpts([]string{"deploy", "-a", name, "-f", "-"},
+			e2e.RunOpts{
+				StdinReader:  strings.NewReader(installPkgYaml),
+				AllowError:   true,
+				OnErrKubectl: []string{"get", "pkg", "-oyaml"}})
+		fmt.Println(out) // TODO: later we'll assert something about the error message which hasn't been written yet.
+		assert.Error(t, err)
+	})
+
+}
+
 func Test_PackageInstallStatus_DisplaysUsefulErrorMessage_ForDeploymentFailure(t *testing.T) {
 	env := e2e.BuildEnv(t)
 	logger := e2e.Logger{}
