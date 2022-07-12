@@ -209,18 +209,23 @@ func (pi *PackageInstallCR) reconcileAppWithPackage(existingApp *kcv1alpha1.App,
 
 func (pi *PackageInstallCR) clusterVersionConstraints(pkg *datapkgingv1alpha1.Package) error {
 	if pkg.Spec.KubernetesVersionSelection != nil {
-		// TODO get kubernetes version
-		k8sV := "1.23.0" // TODO: query the cluster
+		vi, err := pi.coreClient.Discovery().ServerVersion()
+		if err != nil {
+			return err
+		}
+		k8sV := vi.GitVersion
 		v := versions.NewRelaxedSemversNoErr([]string{k8sV})
 		matchedVers, err := v.FilterConstraints(pkg.Spec.KubernetesVersionSelection.Constraints)
 		if err != nil {
 			return err
 		}
-		// TODO: check the pkgi for the override annotation
 		if matchedVers.Len() == 0 {
-			return fmt.Errorf("Cluster is running kubernetes %s but package constrained versions to: %s", k8sV, pkg.Spec.KubernetesVersionSelection.Constraints)
+			// allow the annotation to override version constraints if it exists
+			_, found := pi.model.Annotations["packaging.carvel.dev/ignore-kubernetes-version-selection"]
+			if !found {
+				return fmt.Errorf("Cluster is running kubernetes %s but package constrained versions to: %s", k8sV, pkg.Spec.KubernetesVersionSelection.Constraints)
+			}
 		}
-
 	}
 	return nil
 }

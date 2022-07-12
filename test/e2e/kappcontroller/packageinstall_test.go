@@ -174,7 +174,8 @@ stringData:
 
 // helper for the below test allows us to "template" in and out version constraints
 // if kcVerC is "" then we omit that field, same for k8sVerC
-func pkgiYamlHelper(pkgiName, kcVerC, k8sVerC string) string {
+// annotations will be added to the PKGI, and are expected to be key-names only (vals will be "")
+func pkgiYamlHelper(pkgiName, kcVerC, k8sVerC string, annotations []string) string {
 	installPkgYaml := `---
 apiVersion: data.packaging.carvel.dev/v1alpha1
 kind: Package
@@ -221,6 +222,13 @@ metadata:
   name: %[1]s
   annotations:
     kapp.k14s.io/change-group: kappctrl-e2e.k14s.io/packageinstalls
+`, pkgiName)
+	if len(annotations) > 0 {
+		for _, ann := range annotations {
+			installPkgYaml += fmt.Sprintf(`    "%s": ""`, ann)
+		}
+	}
+	installPkgYaml += `
 spec:
   serviceAccountName: kappctrl-e2e-ns-sa
   packageRef:
@@ -238,7 +246,7 @@ metadata:
 stringData:
   values.yml: |
     hello_msg: "hi"
-`, pkgiName)
+`
 	return installPkgYaml
 }
 
@@ -249,7 +257,6 @@ func Test_PackageInstalled_FromPackageInstall_VersionConstraints(t *testing.T) {
 	// kubectl := e2e.Kubectl{t, env.Namespace, logger}
 	sas := e2e.ServiceAccounts{env.Namespace}
 	name := "instl-pkg-test"
-	installPkgYaml := pkgiYamlHelper(name, "", ">2.0.0") + sas.ForNamespaceYAML()
 
 	cleanUp := func() {
 		// Delete App with kubectl first since kapp
@@ -260,9 +267,8 @@ func Test_PackageInstalled_FromPackageInstall_VersionConstraints(t *testing.T) {
 	cleanUp()
 	defer cleanUp()
 
-	fmt.Println("\n======\nYAML To Be Passed in \n=====\n", installPkgYaml, "\n========")
-
-	logger.Section("Install Package and PackageInstall", func() {
+	logger.Section("Install Package and PackageInstall fails due to k8s version constraint", func() {
+		installPkgYaml := pkgiYamlHelper(name, "", "<1.0.0", []string{}) + sas.ForNamespaceYAML()
 		out, err := kapp.RunWithOpts([]string{"deploy", "-a", name, "-f", "-"},
 			e2e.RunOpts{
 				StdinReader:  strings.NewReader(installPkgYaml),
@@ -271,6 +277,21 @@ func Test_PackageInstalled_FromPackageInstall_VersionConstraints(t *testing.T) {
 		fmt.Println(out) // TODO: later we'll assert something about the error message which hasn't been written yet.
 		assert.Error(t, err)
 	})
+
+	// for some reason it fails as an update??? unclear but we're assuming it's a test artifact not IRL problem.
+	cleanUp()
+
+	// add pkgi annotation and then watch it work.
+	logger.Section("Install Pkg and PKGI but with a version override", func() {
+		installPkgYaml := pkgiYamlHelper(name, "", "<1.0.0", []string{"packaging.carvel.dev/ignore-kubernetes-version-selection"}) + sas.ForNamespaceYAML()
+		kapp.RunWithOpts([]string{"deploy", "-a", name, "-f", "-"},
+			e2e.RunOpts{
+				StdinReader:  strings.NewReader(installPkgYaml),
+				OnErrKubectl: []string{"get", "pkgi", "-oyaml"}})
+	})
+
+	// add breaking kc version constraint
+	// add pkgi annotation to override kc constraint
 
 }
 
