@@ -5,4 +5,4 @@
 /Dockerfile.dev
 /tmp
 .idea
-.vscode/settings.json
+.vscode/*
