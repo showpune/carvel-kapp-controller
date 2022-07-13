@@ -3,20 +3,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kapp-controller
+  name: #@ str(data.values.work_namespace)
   namespace: #@ data.values.namespace
   annotations:
     kapp-controller.carvel.dev/version: #@ data.values.kapp_controller_version
 spec:
   selector:
     matchLabels:
-      app: kapp-controller
+      app: #@ str(data.values.work_namespace)
   replicas: 1
   revisionHistoryLimit: 0
   template:
     metadata:
       labels:
-        app: kapp-controller
+        app: #@ str(data.values.work_namespace)
     spec:
       serviceAccount: kapp-controller-sa
       containers:
@@ -32,6 +32,8 @@ spec:
           value: /etc/kappctrl-mem-tmp
         - name: KAPPCTRL_SIDECAREXEC_SOCK
           value: /etc/kappctrl-mem-tmp/sidecarexec.sock
+        - name: KAPPCTRL_WORK_NAMESPCE
+          value: #@ str(data.values.work_namespace)
         - name: KAPPCTRL_SYSTEM_NAMESPACE
           valueFrom:
             fieldRef:

@@ -34,8 +34,9 @@ import (
 )
 
 const (
-	PprofListenAddr       = "0.0.0.0:6060"
-	kappctrlAPIPORTEnvKey = "KAPPCTRL_API_PORT"
+	PprofListenAddr             = "0.0.0.0:6060"
+	kappctrlAPIPORTEnvKey       = "KAPPCTRL_API_PORT"
+	kappctrlWorkNamespaceEnvKey = "KAPPCTRL_WORK_NAMESPCE"
 )
 
 type Options struct {
@@ -57,6 +58,14 @@ func Run(opts Options, runLog logr.Logger) error {
 
 	if opts.APIRequestTimeout != 0 {
 		restConfig.Timeout = opts.APIRequestTimeout
+	}
+
+	if namespaceWorkedFor, ok := os.LookupEnv(kappctrlWorkNamespaceEnvKey); ok {
+		runLog.Info("Start for work namespace: %s", namespaceWorkedFor)
+		opts.Namespace = namespaceWorkedFor
+
+	} else {
+		runLog.Info("Start for all namespace: %s", namespaceWorkedFor)
 	}
 
 	mgr, err := manager.New(restConfig, manager.Options{Namespace: opts.Namespace,
