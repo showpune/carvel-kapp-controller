@@ -11,7 +11,7 @@ dangerous_enable_pprof: false
 
 push_images: true
 image_cache: true
-image_repo: docker.io/showpune/kapp-controller-test
+image_repo: showpune/kapp-controller-test
 platform: ""
 
 api_port: 10350

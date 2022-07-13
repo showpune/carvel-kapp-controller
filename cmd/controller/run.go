@@ -61,11 +61,10 @@ func Run(opts Options, runLog logr.Logger) error {
 	}
 
 	if namespaceWorkedFor, ok := os.LookupEnv(kappctrlWorkNamespaceEnvKey); ok {
-		runLog.Info("Start for work namespace: %s", namespaceWorkedFor)
 		opts.Namespace = namespaceWorkedFor
-
+		runLog.Info("Start for work namespace", "namespace", opts.Namespace)
 	} else {
-		runLog.Info("Start for all namespace: %s", namespaceWorkedFor)
+		runLog.Info("Start for all namespace", "namespace", namespaceWorkedFor)
 	}
 
 	mgr, err := manager.New(restConfig, manager.Options{Namespace: opts.Namespace,
