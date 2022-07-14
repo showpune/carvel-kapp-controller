@@ -30,6 +30,8 @@ spec:
         env:
         - name: KAPPCTRL_MEM_TMP_DIR
           value: /etc/kappctrl-mem-tmp
+        - name: KAPPCTRL_WORK_NAMESPCE
+          value: #@ str(data.values.work_namespace)
         - name: KAPPCTRL_SIDECAREXEC_SOCK
           value: /etc/kappctrl-mem-tmp/sidecarexec.sock
         - name: KAPPCTRL_SYSTEM_NAMESPACE
