@@ -34,8 +34,10 @@ import (
 )
 
 const (
-	PprofListenAddr       = "0.0.0.0:6060"
-	kappctrlAPIPORTEnvKey = "KAPPCTRL_API_PORT"
+	PprofListenAddr             = "0.0.0.0:6060"
+	kappctrlAPIPORTEnvKey       = "KAPPCTRL_API_PORT"
+	kappctrlWorkNamespaceEnvKey = "KAPPCTRL_WORK_NAMESPACE"
+	cluster                     = "cluster"
 )
 
 type Options struct {
@@ -57,6 +59,22 @@ func Run(opts Options, runLog logr.Logger) error {
 
 	if opts.APIRequestTimeout != 0 {
 		restConfig.Timeout = opts.APIRequestTimeout
+	}
+
+	var workedForNamespaceResource bool = true
+	var workedForClusterResource bool = true
+	if namespaceWorkedFor, ok := os.LookupEnv(kappctrlWorkNamespaceEnvKey); ok {
+		opts.Namespace = namespaceWorkedFor
+		if namespaceWorkedFor == cluster {
+			workedForNamespaceResource = false
+			workedForClusterResource = true
+		} else if namespaceWorkedFor != "" {
+			workedForNamespaceResource = true
+			workedForClusterResource = false
+		}
+		runLog.Info("Start for work namespace", "namespace", opts.Namespace)
+	} else {
+		runLog.Info("Start for all namespace", "namespace", namespaceWorkedFor)
 	}
 
 	mgr, err := manager.New(restConfig, manager.Options{Namespace: opts.Namespace,
@@ -92,37 +110,40 @@ func Run(opts Options, runLog logr.Logger) error {
 	appMetrics.RegisterAllMetrics()
 
 	// assign bindPort to env var KAPPCTRL_API_PORT if available
-	var bindPort int
-	if apiPort, ok := os.LookupEnv(kappctrlAPIPORTEnvKey); ok {
-		var err error
-		if bindPort, err = strconv.Atoi(apiPort); err != nil {
-			return fmt.Errorf("Reading %s env var (must be int): %s", kappctrlAPIPORTEnvKey, err)
+	var server apiserver.APIServer
+	if workedForClusterResource {
+		var bindPort int
+		if apiPort, ok := os.LookupEnv(kappctrlAPIPORTEnvKey); ok {
+			var err error
+			if bindPort, err = strconv.Atoi(apiPort); err != nil {
+				return fmt.Errorf("Reading %s env var (must be int): %s", kappctrlAPIPORTEnvKey, err)
+			}
+		} else {
+			return fmt.Errorf("Expected to find %s env var", kappctrlAPIPORTEnvKey)
 		}
-	} else {
-		return fmt.Errorf("Expected to find %s env var", kappctrlAPIPORTEnvKey)
-	}
 
-	// to facilitate creation of many packages at once from a larger PKGR
-	pkgRestConfig := config.GetConfigOrDie()
-	pkgRestConfig.QPS = 60
-	pkgRestConfig.Burst = 90
-	pkgKcClient, err := kcclient.NewForConfig(pkgRestConfig)
-	if err != nil {
-		return fmt.Errorf("Building pkg kappctrl client: %s", err)
-	}
-	server, err := apiserver.NewAPIServer(pkgRestConfig, coreClient, pkgKcClient, apiserver.NewAPIServerOpts{
-		GlobalNamespace:              opts.PackagingGloablNS,
-		BindPort:                     bindPort,
-		EnableAPIPriorityAndFairness: opts.APIPriorityAndFairness,
-		Logger:                       runLog.WithName("apiserver"),
-	})
-	if err != nil {
-		return fmt.Errorf("Building API server: %s", err)
-	}
+		// to facilitate creation of many packages at once from a larger PKGR
+		pkgRestConfig := config.GetConfigOrDie()
+		pkgRestConfig.QPS = 60
+		pkgRestConfig.Burst = 90
+		pkgKcClient, err := kcclient.NewForConfig(pkgRestConfig)
+		if err != nil {
+			return fmt.Errorf("Building pkg kappctrl client: %s", err)
+		}
+		server, err := apiserver.NewAPIServer(pkgRestConfig, coreClient, pkgKcClient, apiserver.NewAPIServerOpts{
+			GlobalNamespace:              opts.PackagingGloablNS,
+			BindPort:                     bindPort,
+			EnableAPIPriorityAndFairness: opts.APIPriorityAndFairness,
+			Logger:                       runLog.WithName("apiserver"),
+		})
+		if err != nil {
+			return fmt.Errorf("Building API server: %s", err)
+		}
 
-	err = server.Run()
-	if err != nil {
-		return fmt.Errorf("Starting API server: %s", err)
+		err = server.Run()
+		if err != nil {
+			return fmt.Errorf("Starting API server: %s", err)
+		}
 	}
 
 	sidecarClient, err := sidecarexec.NewClient(exec.NewPlainCmdRunner())
@@ -131,8 +152,7 @@ func Run(opts Options, runLog logr.Logger) error {
 	}
 
 	sidecarCmdExec := sidecarClient.CmdExec()
-
-	{ // add controller for config
+	if workedForNamespaceResource { // add controller for config
 		reconciler := kcconfig.NewReconciler(
 			coreClient, sidecarClient.OSConfig(), runLog.WithName("config"))
 
@@ -164,8 +184,7 @@ func Run(opts Options, runLog logr.Logger) error {
 
 	refTracker := reftracker.NewAppRefTracker()
 	updateStatusTracker := reftracker.NewAppUpdateStatus()
-
-	{ // add controller for apps
+	if workedForNamespaceResource { // add controller for apps
 		appFactory := app.CRDAppFactory{
 			CoreClient: coreClient,
 			AppClient:  kcClient,
@@ -193,7 +212,7 @@ func Run(opts Options, runLog logr.Logger) error {
 		}
 	}
 
-	{ // add controller for PackageInstall
+	if workedForClusterResource { // add controller for PackageInstall
 		pkgToPkgInstallHandler := pkginstall.NewPackageInstallVersionHandler(
 			kcClient, opts.PackagingGloablNS, runLog.WithName("handler"))
 
@@ -214,7 +233,7 @@ func Run(opts Options, runLog logr.Logger) error {
 		}
 	}
 
-	{ // add controller for pkgrepositories
+	if workedForClusterResource { // add controller for pkgrepositories
 		appFactory := pkgrepository.AppFactory{coreClient, kcClient, kcConfig, sidecarCmdExec}
 
 		reconciler := pkgrepository.NewReconciler(kcClient, coreClient,
@@ -249,7 +268,9 @@ func Run(opts Options, runLog logr.Logger) error {
 	}
 
 	runLog.Info("Exiting")
-	server.Stop()
+	if workedForClusterResource {
+		server.Stop()
+	}
 
 	return nil
 }
