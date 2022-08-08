@@ -1,5 +1,5 @@
 #@ load("@ytt:data", "data")
-
+#@ if/end data.values.reconcile_scope != 'namespace':
 ---
 apiVersion: v1
 kind: ServiceAccount
