@@ -160,7 +160,6 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: kapp-controller-config
-  namespace: kapp-controller
 stringData:
   dangerousSkipTLSVerify: registry-svc.registry.svc.cluster.local
 `
