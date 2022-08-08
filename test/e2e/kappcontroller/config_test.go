@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 	"fmt"
+	"os"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/vmware-tanzu/carvel-kapp-controller/test/e2e"
@@ -107,15 +108,15 @@ spec:
 	defer cleanUpApp()
 
 	logger.Section("deploy controller config to set global label", func() {
-		config := `
+		config := fmt.Sprintf(`
 apiVersion: v1
 kind: Secret
 metadata:
   name: kapp-controller-config
-  namespace: kapp-controller
+  namespace: %s
 stringData:
   kappDeployRawOptions: "[\"--diff-changes=true\", \"--labels=kc-test=kc-test-val\"]"
-`
+`, env.Namespace)
 		kapp.RunWithOpts([]string{"deploy", "-f", "-", "-a", configName}, e2e.RunOpts{StdinReader: strings.NewReader(config)})
 
 		// Since config propagation is async, just wait a little bit
@@ -133,6 +134,9 @@ stringData:
 }
 
 func TestConfig_TrustCACerts(t *testing.T) {
+	if os.Getenv("SKIP_NAMESPACED") == "true" {
+		t.Skip("Skip in namespaced controller test")
+	}
 	env := e2e.BuildEnv(t)
 	logger := e2e.Logger{}
 	kapp := e2e.Kapp{t, env.Namespace, logger}
@@ -298,15 +302,15 @@ spec:
 	defer cleanUp()
 
 	logger.Section("deploy controller config to skip tls for specific domain", func() {
-		config := `
+		config := fmt.Sprintf(`
 apiVersion: v1
 kind: Secret
 metadata:
   name: kapp-controller-config
-  namespace: kapp-controller
+  namespace: %s
 stringData:
   dangerousSkipTLSVerify: registry-svc.registry.svc.cluster.local
-`
+`, env.Namespace)
 		kapp.RunWithOpts([]string{"deploy", "-f", "-", "-a", configName}, e2e.RunOpts{StdinReader: strings.NewReader(config)})
 
 		// Since config propagation is async, just wait a little bit
