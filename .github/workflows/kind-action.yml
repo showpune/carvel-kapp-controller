@@ -9,15 +9,16 @@ jobs:
   run-tests:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1.3.0
         with:
           version: v0.13.0
           kubectl_version: v1.24.0
           cluster_name: kinder
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
+          config: ./hack/kind-config.yaml
       - uses: actions/setup-go@v3 # default version of go is 1.10
         with:
           go-version: "1.17.6"
@@ -29,13 +30,15 @@ jobs:
           set -e -x
           kubectl version --short
 
-          ytt -f config/ | kbld -f- > kbld.out 2> kbldmeta.out
+          ytt -v reconcile_namespace=kappctrl-test -v reconcile_scope=namespace -v namespace=kappctrl-test -f config/ | kbld -f- > kbld.out 2> kbldmeta.out
           cat kbldmeta.out | tail -n 1 | sed 's/.*final: kapp-controller -> \(.*\)$/\1/p'  | tail -n 1 | xargs kind load docker-image --name kinder
-          kapp deploy -a kc -f kbld.out -c -y
+          kubectl apply -f kbld.out
+          
+          ytt -v reconcile_scope=cluster -v namespace=kapp-controller  -f config/ | kbld -f- | kubectl apply -f-
 
           export KAPPCTRL_E2E_SECRETGEN_CONTROLLER=true
           source ./hack/secretgen-controller.sh
           deploy_secretgen-controller
 
           mkdir tmp
-          KAPPCTRL_E2E_NAMESPACE=kappctrl-test eval './hack/test-e2e.sh'
+          KAPPCTRL_E2E_NAMESPACE=kappctrl-test SKIP_NAMESPACED=true eval './hack/test-e2e.sh'
