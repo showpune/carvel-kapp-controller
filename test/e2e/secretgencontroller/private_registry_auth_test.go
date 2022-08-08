@@ -97,7 +97,7 @@ spec:
 }
 
 func Test_PackageInstallAndRepo_CanAuthenticateToPrivateRepository_UsingPlaceholderSecret(t *testing.T) {
-	if os.Getenv("SKIP_NAMESPACED") == "true" {
+	if os.Getenv("KAPPCTRL_E2E_SKIP_IN_NS_SUPPORT") == "true" {
 		t.Skip("Skip in namespaced controller test")
 	}
 	env := e2e.BuildEnv(t)
