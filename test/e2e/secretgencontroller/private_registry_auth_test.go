@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"os"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -96,6 +97,9 @@ spec:
 }
 
 func Test_PackageInstallAndRepo_CanAuthenticateToPrivateRepository_UsingPlaceholderSecret(t *testing.T) {
+	if os.Getenv("SKIP_NAMESPACED") == "true" {
+		t.Skip("Skip in namespaced controller test")
+	}
 	env := e2e.BuildEnv(t)
 	logger := e2e.Logger{}
 	kapp := e2e.Kapp{t, env.Namespace, logger}
