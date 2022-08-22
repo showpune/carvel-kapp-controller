@@ -16,3 +16,4 @@ platform: ""
 
 api_port: 10350
 kapp_controller_version: "develop"
+start-api-server: true
