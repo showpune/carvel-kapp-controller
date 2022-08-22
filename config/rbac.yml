@@ -1,5 +1,4 @@
 #@ load("@ytt:data", "data")
-
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -113,7 +112,7 @@ rules:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: kapp-controller-cluster-role-binding
+  name: #@ "kapp-controller-cluster-role-binding-" + data.values.namespace
 subjects:
 - kind: ServiceAccount
   name: kapp-controller-sa
@@ -126,7 +125,7 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: pkg-apiserver:system:auth-delegator
+  name: #@ "pkg-apiserver:system:auth-delegator:" + data.values.namespace
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

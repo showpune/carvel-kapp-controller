@@ -33,7 +33,7 @@ jobs:
           ytt -v namespace=kappctrl-test -f config/ | kbld -f- > kbld.out 2> kbldmeta.out
           cat kbldmeta.out | tail -n 1 | sed 's/.*final: kapp-controller -> \(.*\)$/\1/p'  | tail -n 1 | xargs kind load docker-image --name kinder
           kubectl apply -f kbld.out
-          ytt -v namespace=kapp-controller -v start-api-server=false  -f config/ | kbld -f- | kubectl apply -f-
+          ytt -v namespace=kapp-controller  -f config/ | kbld -f- | kubectl apply -f-
           
           export KAPPCTRL_E2E_SECRETGEN_CONTROLLER=true
           source ./hack/secretgen-controller.sh
