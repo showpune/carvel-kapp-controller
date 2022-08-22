@@ -34,12 +34,8 @@ import (
 )
 
 const (
-	PprofListenAddr                  = "0.0.0.0:6060"
-	kappctrlAPIPORTEnvKey            = "KAPPCTRL_API_PORT"
-	kappctrlReconcileNamespaceEnvKey = "RECONCILE_NAMESPCE"
-	kappctrlReconcileScopeEnvKey     = "RECONCILE_SCOPE"
-	cluster                          = "cluster"
-	namespace                        = "namespace"
+	PprofListenAddr       = "0.0.0.0:6060"
+	kappctrlAPIPORTEnvKey = "KAPPCTRL_API_PORT"
 )
 
 type Options struct {
@@ -50,6 +46,7 @@ type Options struct {
 	PackagingGloablNS      string
 	MetricsBindAddress     string
 	APIPriorityAndFairness bool
+	StartAPIServer         bool
 }
 
 // Based on https://github.com/kubernetes-sigs/controller-runtime/blob/8f633b179e1c704a6e40440b528252f147a3362a/examples/builtins/main.go
@@ -61,35 +58,6 @@ func Run(opts Options, runLog logr.Logger) error {
 
 	if opts.APIRequestTimeout != 0 {
 		restConfig.Timeout = opts.APIRequestTimeout
-	}
-
-	workForClusterResource := true
-	workForNamespaceResource := true
-	if reconcileScope, ok := os.LookupEnv(kappctrlReconcileScopeEnvKey); ok {
-		runLog.Info("Start for Reconcile Scope", "reconcileScope", reconcileScope)
-		if reconcileScope == cluster {
-			workForClusterResource = true
-			workForNamespaceResource = false
-		} else if reconcileScope == namespace {
-			workForClusterResource = false
-			workForNamespaceResource = true
-		} else if reconcileScope == "" {
-			workForClusterResource = true
-			workForNamespaceResource = true
-		} else {
-			return fmt.Errorf("invalid reconcile scope, should be cluster or namespace")
-		}
-		runLog.Info("Reconcile for resource", "cluster", workForClusterResource, "namespace", workForNamespaceResource)
-
-	} else {
-		runLog.Info("Start for default reconcile scope, include cluster and namespace")
-	}
-
-	if namespaceWorkedFor, ok := os.LookupEnv(kappctrlReconcileNamespaceEnvKey); ok {
-		opts.Namespace = namespaceWorkedFor
-		runLog.Info("Reconcile for namespace", "namespace", opts.Namespace)
-	} else {
-		runLog.Info("Reconcile for all namespace", "namespace", namespaceWorkedFor)
 	}
 
 	mgr, err := manager.New(restConfig, manager.Options{Namespace: opts.Namespace,
@@ -125,7 +93,7 @@ func Run(opts Options, runLog logr.Logger) error {
 	appMetrics.RegisterAllMetrics()
 
 	var server *apiserver.APIServer
-	if workForClusterResource {
+	if opts.StartAPIServer {
 		// assign bindPort to env var KAPPCTRL_API_PORT if available
 		var bindPort int
 		if apiPort, ok := os.LookupEnv(kappctrlAPIPORTEnvKey); ok {
@@ -201,7 +169,7 @@ func Run(opts Options, runLog logr.Logger) error {
 	refTracker := reftracker.NewAppRefTracker()
 	updateStatusTracker := reftracker.NewAppUpdateStatus()
 
-	if workForNamespaceResource { // add controller for apps
+	{ // add controller for apps
 		appFactory := app.CRDAppFactory{
 			CoreClient: coreClient,
 			AppClient:  kcClient,
@@ -229,7 +197,7 @@ func Run(opts Options, runLog logr.Logger) error {
 		}
 	}
 
-	if workForNamespaceResource { // add controller for PackageInstall
+	{ // add controller for PackageInstall
 		pkgToPkgInstallHandler := pkginstall.NewPackageInstallVersionHandler(
 			kcClient, opts.PackagingGloablNS, runLog.WithName("handler"))
 
@@ -250,7 +218,7 @@ func Run(opts Options, runLog logr.Logger) error {
 		}
 	}
 
-	if workForClusterResource { // add controller for pkgrepositories
+	{ // add controller for pkgrepositories
 		appFactory := pkgrepository.AppFactory{coreClient, kcClient, kcConfig, sidecarCmdExec}
 
 		reconciler := pkgrepository.NewReconciler(kcClient, coreClient,
